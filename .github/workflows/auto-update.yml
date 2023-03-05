@@ -1,8 +1,9 @@
 name: Auto Update on new version tags
 
 on:
+  schedule:
+    - cron: "0 * * * *"
   workflow_dispatch:
-
 jobs:
   auto-update:
     runs-on: ubuntu-latest
@@ -13,13 +14,26 @@ jobs:
         uses: baptiste0928/cargo-install@v1
         with:
           crate: cargo-ebuild
-      - name: clone gitlab/virtiofsd
+      - name: cache upstream repo
+        id: cache-upstream
+        uses: actions/cache@v3
+        with:
+          path: ~/git
+          key: cache-upstream
+      - name: clone upstream repo on cache miss
+        if: steps.cache-upstream.outputs.cache-hit != 'true'
         run: |
-          CURRENT_VERSION=$(find app-emulation/virtiofsd-rs/ -type f | rev | cut -d '/' -f1 | rev | tail -n 1)
-          mkdir work
-          cd work
-          git clone https://gitlab.com/virtio-fs/virtiofsd
-          cd virtiofsd
+          mkdir ~/git
+          cd ~/git
+          git clone https://gitlab.com/virtio-fs/virtiofsd.git
+      - name: auto create virtiofsd-rs.ebuild on new upstream version
+        run: |
+          CURRENT_VERSION=$(find app-emulation/virtiofsd-rs/ -type f | grep ebuild | rev | cut -d '/' -f1 | rev | tail -n 1)
+          CURRENT_VERSION=${CURRENT_VERSION:13:-7}
+          MYDIR=$(pwd)
+          cd ~/git/virtiofsd
+          git fetch --all
+          git reset --hard origin/main
           TAG=$(git tag | grep -E "^v[[:digit:].]+$" | tail -n 1)
           NEW_VERSION=${TAG:1}
           echo "current version: $CURRENT_VERSION"
@@ -28,15 +42,15 @@ jobs:
             echo "found new version: $NEW_VERSION"
             git checkout $TAG
             cargo-ebuild ebuild
-            patch virtiofsd-$NEW_VERSION.ebuild < ../../scripts/fix-ebuild.patch
-            cp virtiofsd-$NEW_VERSION.ebuild ../../app-emulation/virtiofsd-rs/virtiofsd-rs-$NEW_VERSION.ebuild
+            patch virtiofsd-$NEW_VERSION.ebuild < $MYDIR/scripts/fix-ebuild.patch
+            cp virtiofsd-$NEW_VERSION.ebuild $MYDIR/app-emulation/virtiofsd-rs/virtiofsd-rs-$NEW_VERSION.ebuild
           else
             echo "no new version: $NEW_VERSION"
           fi
       - name: add and commit
         uses: EndBug/add-and-commit@v9
         with:
-          message: Show GitHub Actions logo
+          message: ebuild version bump
           committer_name: GitHub Actions
           committer_email: actions@github.com
           add: app-emulation/virtiofsd-rs/virtiofsd-rs-*.ebuild
