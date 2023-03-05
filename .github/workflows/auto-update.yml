@@ -6,21 +6,33 @@ on:
 jobs:
   auto-update:
     runs-on: ubuntu-latest
+    steps:
       - name: Check out repository code
         uses: actions/checkout@v3
-      - name: cargo install cargo-ebuild
-        run: cargo install cargo-ebuild
+      - name: cached install of cargo-ebuild
+        uses: baptiste0928/cargo-install@v1
+        with:
+          crate: cargo-ebuild
       - name: clone gitlab/virtiofsd
         run: |
+          CURRENT_VERSION=$(find app-emulation/virtiofsd-rs/ -type f | rev | cut -d '/' -f1 | rev | tail -n 1)
           mkdir work
           cd work
           git clone https://gitlab.com/virtio-fs/virtiofsd
           cd virtiofsd
-          TAG=$(git tag | tail -n 1)
-          git checkout $TAG
-          cargo-ebuild ebuild
-          patch virtiofsd-$TAG.ebuild < ../../scripts/fix-ebuild.patch
-          mv virtiofsd-$TAG.ebuild ../../app-emulation/virtiofsd-rs/virtiofsd-rs-$TAG.ebuild
+          TAG=$(git tag | grep -E "^v[[:digit:].]+$" | tail -n 1)
+          NEW_VERSION=${TAG:1}
+          echo "current version: $CURRENT_VERSION"
+          if [[ $CURRENT_VERSION != $NEW_VERSION ]]
+          then
+            echo "found new version: $NEW_VERSION"
+            git checkout $TAG
+            cargo-ebuild ebuild
+            patch virtiofsd-$NEW_VERSION.ebuild < ../../scripts/fix-ebuild.patch
+            cp virtiofsd-$NEW_VERSION.ebuild ../../app-emulation/virtiofsd-rs/virtiofsd-rs-$NEW_VERSION.ebuild
+          else
+            echo "no new version: $NEW_VERSION"
+          fi
       - name: add and commit
         uses: EndBug/add-and-commit@v9
         with:
