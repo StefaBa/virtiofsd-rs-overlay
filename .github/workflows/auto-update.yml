@@ -1,0 +1,30 @@
+name: Auto Update on new version tags
+
+on:
+  workflow_dispatch:
+
+jobs:
+  auto-update:
+    runs-on: ubuntu-latest
+      - name: Check out repository code
+        uses: actions/checkout@v3
+      - name: cargo install cargo-ebuild
+        run: cargo install cargo-ebuild
+      - name: clone gitlab/virtiofsd
+        run: |
+          mkdir work
+          cd work
+          git clone https://gitlab.com/virtio-fs/virtiofsd
+          cd virtiofsd
+          TAG=$(git tag | tail -n 1)
+          git checkout $TAG
+          cargo-ebuild ebuild
+          patch virtiofsd-$TAG.ebuild < ../../scripts/fix-ebuild.patch
+          mv virtiofsd-$TAG.ebuild ../../app-emulation/virtiofsd-rs/virtiofsd-rs-$TAG.ebuild
+      - name: add and commit
+        uses: EndBug/add-and-commit@v9
+        with:
+          message: Show GitHub Actions logo
+          committer_name: GitHub Actions
+          committer_email: actions@github.com
+          add: app-emulation/virtiofsd-rs/virtiofsd-rs-*.ebuild

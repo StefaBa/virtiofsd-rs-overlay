@@ -1,0 +1,27 @@
+--- virtiofsd-1.5.1.ebuild	2023-03-05 02:43:02.461088462 +0100
++++ virtiofsd-rs-1.5.1.ebuild	2023-02-25 14:51:30.051033030 +0100
+@@ -91,11 +91,22 @@
+ 
+ inherit cargo
+ 
+-DESCRIPTION="A virtio-fs vhost-user device daemon"
++DESCRIPTION="rust implementation of a virtio-fs vhost-user device daemon"
+ # Double check the homepage as the cargo_metadata crate
+ # does not provide this value so instead repository is used
+ HOMEPAGE="https://gitlab.com/virtio-fs/virtiofsd"
+-SRC_URI="$(cargo_crate_uris)"
++SRC_URI="https://gitlab.com/virtio-fs/virtiofsd/-/archive/v${PV}/virtiofsd-v${PV}.tar.gz $(cargo_crate_uris)"
++
++src_unpack() {
++	unpack virtiofsd-v${PV}.tar.gz
++	mv virtiofsd-v${PV} ${P}
++	cargo_src_unpack
++}
++
++src_install() {
++	cargo_src_install
++	mv ${D}/usr/bin/virtiofsd ${D}/usr/bin/${PN}
++}
+ 
+ # License set may be more restrictive as OR is not respected
+ # use cargo-license for a more accurate license picture
