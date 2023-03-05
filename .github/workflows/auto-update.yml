@@ -2,7 +2,7 @@ name: Auto Update on new version tags
 
 on:
   schedule:
-    - cron: "0 * * * *"
+    - cron: "14 3 * * *"
   workflow_dispatch:
 jobs:
   auto-update:
